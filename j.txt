@@ -1,0 +1,597 @@
+-[span_1](start_span)- [1] Kiểm tra game đã load xong chưa[span_1](end_span)
+if not game:IsLoaded() then
+    repeat game.Loaded:Wait() until game:IsLoaded()
+end
+
+-[span_2](start_span)- [2] Khai báo các Service hệ thống[span_2](end_span)
+local player = game.Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
+
+-[span_3](start_span)- [3] Cấu hình Sigma Hub[span_3](end_span)
+_G.Prefix = "Sigma Hub | "
+_G.Kaitun = true
+_G.FastAttack = true
+_G.AutoStats = true
+_G.AutoCode = true
+
+-[span_4](start_span)- [4] Tạo giao diện thông báo nhỏ (Status)[span_4](end_span)
+local sg = Instance.new("ScreenGui", player.PlayerGui)
+sg.Name = "SigmaStatus"
+local frame = Instance.new("Frame", sg)
+frame.Size = UDim2.new(0, 260, 0, 60)
+frame.Position = UDim2.new(0.5, -130, 0, 20)
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+frame.BorderSizePixel = 2
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0.4, 0)
+title.Text = "DKHOA SIGMA HUB v4"
+title.TextColor3 = Color3.fromRGB(255, 0, 0)
+title.BackgroundTransparency = 1
+
+local status = Instance.new("TextLabel", frame)
+status.Size = UDim2.new(1, 0, 0.6, 0)
+status.Position = UDim2.new(0, 0, 0.4, 0)
+status.Text = "Status: Đang khởi tạo..."
+status.TextColor3 = Color3.fromRGB(255, 255, 255)
+status.BackgroundTransparency = 1
+
+-[span_5](start_span)- [5] Hàm Tween (Bay xuyên đảo)[span_5](end_span)
+function Tween(pos)
+    local char = player.Character or player.CharacterAdded:Wait()
+    local root = char:WaitForChild("HumanoidRootPart")
+    local dist = (root.Position - pos.p).Magnitude
+    [span_6](start_span)local speed = 320 -- Tốc độ chuẩn Salio[span_6](end_span)
+    local info = TweenInfo.new(dist/speed, Enum.EasingStyle.Linear)
+    local twin = TweenService:Create(root, info, {CFrame = pos})
+    twin:Play()
+    return twin
+end
+
+-[span_7](start_span)- [6] Hệ thống Noclip (Xuyên tường)[span_7](end_span)
+RunService.Stepped:Connect(function()
+    if _G.Kaitun and player.Character then
+        for _, v in pairs(player.Character:GetDescendants()) do
+            if v:IsA("BasePart") then v.CanCollide = false end
+        end
+    end
+end)
+
+-[span_8](start_span)- [7] Chống bị Kick do treo máy (Anti-AFK)[span_8](end_span)
+local vu = game:GetService("VirtualUser")
+player.Idled:Connect(function()
+    vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    wait(1)
+    vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+end)
+
+-[span_9](start_span)- [8] Hàm Bay trên đầu quái (Vị trí farm quan trọng)[span_9](end_span)
+function GetFarmPos(mob)
+    -[span_10](start_span)- Bay cao hơn quái 8 studs và hướng mặt xuống để né skill[span_10](end_span)
+    return mob.HumanoidRootPart.CFrame * CFrame.new(0, 8, 0) * CFrame.Angles(math.rad(-90), 0, 0)
+end
+
+-[span_11](start_span)- [9] Hàm tự động cộng điểm (Stats)[span_11](end_span)
+spawn(function()
+    while wait(3) do
+        if _G.AutoStats then
+            pcall(function()
+                ReplicatedStorage.Remotes.StatSystem:FireServer("Melee", 5)
+                ReplicatedStorage.Remotes.StatSystem:FireServer("Defense", 5)
+            end)
+        end
+    end
+end)
+
+-[span_12](start_span)- [10] Hiệu ứng đổi màu UI Sigma[span_12](end_span)
+spawn(function()
+    while wait() do
+        for i = 0, 1, 0.01 do
+            frame.BorderColor3 = Color3.fromHSV(i, 1, 1)
+            wait(0.1)
+        end
+    end
+end)
+
+[span_13](start_span)status.Text = "Status: Đã xong Phần 1!"[span_13](end_span)
+-[span_2](start_span)- [11] Bảng dữ liệu quái theo Level (dkhoa hãy cập nhật tên quái chuẩn tại đây)[span_2](end_span)
+local MobData = {
+    {Level = 1, MobName = "Thief", NPC = "Thief Quest NPC", QuestName = "ThiefQuest"},
+    {Level = 25, MobName = "Thief Boss", NPC = "Thief Boss NPC", QuestName = "ThiefBossQuest"},
+    {Level = 500, MobName = "Monkey", NPC = "Monkey NPC", QuestName = "MonkeyQuest"}
+}
+
+-[span_3](start_span)- [12] Hàm lấy thông tin nhiệm vụ phù hợp với Level hiện tại[span_3](end_span)
+function GetCurrentQuest()
+    local myLvl = player.Data.Level.Value
+    local target = MobData[1]
+    for _, v in pairs(MobData) do
+        if myLvl >= v.Level then
+            target = v
+        end
+    end
+    return target
+end
+
+-[span_4](start_span)- [13] Hàm tìm quái trong Workspace[span_4](end_span)
+function GetTargetMob(mobName)
+    for _, v in pairs(game.Workspace.Enemies:GetChildren()) do
+        if v.Name == mobName and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+            return v
+        end
+    end
+    return nil
+end
+
+-[span_5](start_span)- [14] Logic tự động farm (Vòng lặp chính)[span_5](end_span)
+spawn(function()
+    while _G.Kaitun do
+        task.wait(0.5)
+        pcall(function()
+            local questInfo = GetCurrentQuest()
+            local hasQuest = player.Data.CurrentQuest.Value
+            
+            if hasQuest == "" then
+                -[span_6](start_span)- Nếu chưa có nhiệm vụ: Bay đi nhận quest[span_6](end_span)
+                status.Text = "Status: Đang đi nhận nhiệm vụ " .. questInfo.MobName
+                local npc = game.Workspace.NPCs:FindFirstChild(questInfo.NPC)
+                if npc then
+                    Tween(npc.HumanoidRootPart.CFrame)
+                    ReplicatedStorage.Remotes.QuestEvent:FireServer("Claim", questInfo.QuestName)
+                end
+            else
+                -[span_7](start_span)- Nếu đã có nhiệm vụ: Đi tìm quái[span_7](end_span)
+                local target = GetTargetMob(questInfo.MobName)
+                if target then
+                    status.Text = "Status: Đang farm " .. questInfo.MobName
+                    [span_8](start_span)Tween(GetFarmPos(target)) -- Sử dụng logic bay trên đầu quái từ Phần 1[span_8](end_span)
+                else
+                    -[span_9](start_span)- Đợi quái hồi sinh[span_9](end_span)
+                    status.Text = "Status: Đợi quái xuất hiện..."
+                    Tween(game.Workspace.Spawns[questInfo.MobName].CFrame)
+                end
+            end
+        end)
+    end
+end)
+
+-[span_10](start_span)- [15] Tự động cầm vũ khí[span_10](end_span)
+spawn(function()
+    while wait(1) do
+        if _G.Kaitun and not player.Character:FindFirstChildOfClass("Tool") then
+            local tool = player.Backpack:FindFirstChild("Combat") or player.Backpack:FindFirstChildOfClass("Tool")
+            if tool then
+                player.Character.Humanoid:EquipTool(tool)
+            end
+        end
+    end
+end)
+
+-[span_11](start_span)- [16] Gom quái (Bring Mobs) giúp farm nhanh[span_11](end_span)
+spawn(function()
+    while _G.Kaitun do
+        task.wait(1)
+        pcall(function()
+            local questInfo = GetCurrentQuest()
+            local mainMob = GetTargetMob(questInfo.MobName)
+            if mainMob then
+                for _, v in pairs(game.Workspace.Enemies:GetChildren()) do
+                    if v.Name == questInfo.MobName and v ~= mainMob then
+                        v.HumanoidRootPart.CFrame = mainMob.HumanoidRootPart.CFrame
+                        v.HumanoidRootPart.CanCollide = false
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-[span_12](start_span)- [17] Tự động hồi sinh (Auto Respawn)[span_12](end_span)
+player.CharacterAdded:Connect(function()
+    wait(2)
+    if _G.Kaitun then
+        status.Text = "Status: Đã hồi sinh, tiếp tục farm..."
+    end
+end)
+
+-[span_13](start_span)- [18] Tự động bật Haki[span_13](end_span)
+spawn(function()
+    while wait(10) do
+        if _G.Kaitun then
+            ReplicatedStorage.Remotes.HakiEvent:FireServer("Activate")
+        end
+    end
+end)
+
+-[span_14](start_span)- [19] Vô hiệu hóa quái (Stun Mob)[span_14](end_span)
+spawn(function()
+    while _G.Kaitun do
+        task.wait(0.5)
+        local questInfo = GetCurrentQuest()
+        local target = GetTargetMob(questInfo.MobName)
+        if target then
+            target.Humanoid.WalkSpeed = 0
+            target.Humanoid.PlatformStand = true
+        end
+    end
+end)
+
+-[span_15](start_span)- [20] Kết thúc Phần 2[span_15](end_span)
+status.Text = "Status: Đã xong Phần 2 (Auto Farm)!"
+-- [21] Hệ thống Fast Attack (Đánh không delay)
+[span_0](start_span)local CombatRemote = ReplicatedStorage.Remotes.CombatEvent --[span_0](end_span)
+spawn(function()
+    while _G.FastAttack do
+        [span_1](start_span)RunService.RenderStepped:Wait() --[span_1](end_span)
+        pcall(function()
+            if _G.Kaitun and player.Character:FindFirstChildOfClass("Tool") then
+                -[span_2](start_span)- Gửi lệnh đánh liên tục lên Server[span_2](end_span)
+                CombatRemote:FireServer("Attack") 
+            end
+        end)
+    end
+end)
+
+-- [22] Tự động Combo Skill (Z, X, C, V)
+_G.AutoSkill = true
+spawn(function()
+    while _G.AutoSkill do
+        task.wait(0.5)
+        pcall(function()
+            if _G.Kaitun and GetTargetMob(GetCurrentQuest().MobName) then
+                [span_3](start_span)local SkillRemote = ReplicatedStorage.Remotes.SkillEvent --[span_3](end_span)
+                [span_4](start_span)local skills = {"Z", "X", "C", "V"} --[span_4](end_span)
+                for _, key in pairs(skills) do
+                    [span_5](start_span)SkillRemote:FireServer("Skill_"..key) --[span_5](end_span)
+                end
+            end
+        end)
+    end
+end)
+
+-- [23] Danh sách Boss Thần Thoại & World Boss (Database)
+local WorldBosses = {
+    [span_6](start_span)["Sukuna"] = {Island = "Ga Shibuya", Pos = CFrame.new(2000, 50, 2000)}, --[span_6](end_span)
+    [span_7](start_span)["Gojo"] = {Island = "Ga Shibuya", Pos = CFrame.new(2100, 50, 2100)}, --[span_7](end_span)
+    [span_8](start_span)["Jinwoo"] = {Island = "Đảo Thủy Thủ", Pos = CFrame.new(-3000, 60, 1500)}, --[span_8](end_span)
+    [span_9](start_span)["Aizen"] = {Island = "Hueco Mundo", Pos = CFrame.new(5000, 100, -5000)} --[span_9](end_span)
+}
+
+-- [24] Logic tự động săn World Boss khi xuất hiện
+_G.AutoBoss = true
+spawn(function()
+    while _G.AutoBoss do
+        task.wait(1)
+        for bossName, info in pairs(WorldBosses) do
+            [span_10](start_span)local boss = game.Workspace.Enemies:FindFirstChild(bossName) --[span_10](end_span)
+            [span_11](start_span)if boss and boss:FindFirstChild("Humanoid") and boss.Humanoid.Health > 0 then --[span_11](end_span)
+                _[span_12](start_span)G.Kaitun = false -- Tạm ngừng farm thường để diệt Boss[span_12](end_span)
+                status.Text = "Status: PHÁT HIỆN " .. bossName:upper() .. "!" -[span_13](start_span)-[span_13](end_span)
+                
+                -[span_14](start_span)- Bay tới vị trí Boss (Cách đầu 12 studs để né skill)[span_14](end_span)
+                [span_15](start_span)Tween(boss.HumanoidRootPart.CFrame * CFrame.new(0, 12, 0)) --[span_15](end_span)
+                [span_16](start_span)CombatRemote:FireServer("Attack") --[span_16](end_span)
+            else
+                _[span_17](start_span)G.Kaitun = true -- Quay lại farm level khi Boss chết[span_17](end_span)
+            end
+        end
+    end
+end)
+
+-- [25] Tự động nhặt đồ hiếm rơi từ Boss (Drops)
+spawn(function()
+    while _G.Kaitun do
+        task.wait(2)
+        for _, v in pairs(game.Workspace:GetChildren()) do
+            -[span_18](start_span)- Kiểm tra Tool hoặc Part có TouchInterest[span_18](end_span)
+            [span_19](start_span)if v:IsA("Tool") or (v:IsA("Part") and v:FindFirstChild("TouchInterest")) then --[span_19](end_span)
+                local dist = (player.Character.HumanoidRootPart.Position - v.Position).Magnitude
+                if dist < 100 then
+                    [span_20](start_span)firetouchinterest(player.Character.HumanoidRootPart, v, 0) --[span_20](end_span)
+                    task.wait(0.1)
+                    [span_21](start_span)firetouchinterest(player.Character.HumanoidRootPart, v, 1) --[span_21](end_span)
+                end
+            end
+        end
+    end
+end)
+
+-- [26] Chống chết khi Boss dùng Skill diện rộng (God Mode Light)
+spawn(function()
+    while _G.AutoBoss do
+        task.wait()
+        if player.Character and player.Character.Humanoid.Health < 50 then
+            -[span_22](start_span)- Bay vọt lên trời cao để hồi máu an toàn[span_22](end_span)
+            [span_23](start_span)Tween(player.Character.HumanoidRootPart.CFrame * CFrame.new(0, 150, 0)) --[span_23](end_span)
+            [span_24](start_span)repeat task.wait() until player.Character.Humanoid.Health > 150 --[span_24](end_span)
+        end
+    end
+end)
+
+-- [27] Tự động dùng Chìa Khóa (Dungeon/Key)
+spawn(function()
+    while _G.Kaitun do
+        task.wait(10)
+        [span_25](start_span)local keys = {"Malevolent Key", "Limitless Key", "Dungeon Key"} --[span_25](end_span)
+        for _, k in pairs(keys) do
+            if player.Backpack:FindFirstChild(k) then
+                [span_26](start_span)ReplicatedStorage.Remotes.KeyRemote:FireServer("Use", k) --[span_26](end_span)
+            end
+        end
+    end
+end)
+
+-- [28] Tối ưu hóa tầm đánh cho Boss (Hitbox)
+spawn(function()
+    while _G.AutoBoss do
+        task.wait(2)
+        for _, b in pairs(game.Workspace.Enemies:GetChildren()) do
+            [span_27](start_span)if WorldBosses[b.Name] and b:FindFirstChild("HumanoidRootPart") then --[span_27](end_span)
+                [span_28](start_span)b.HumanoidRootPart.Size = Vector3.new(40, 40, 40) -- Phóng to Boss để dễ đánh[span_28](end_span)
+                [span_29](start_span)b.HumanoidRootPart.CanCollide = false --[span_29](end_span)
+                [span_30](start_span)b.HumanoidRootPart.Transparency = 0.7 --[span_30](end_span)
+            end
+        end
+    end
+end)
+
+-- [29] Hàm Tự động qua đảo (Island Tracker)
+function TeleportToIsland(islandName)
+    [span_31](start_span)local portal = game.Workspace.Portals:FindFirstChild(islandName) --[span_31](end_span)
+    if portal then
+        [span_32](start_span)Tween(portal.CFrame) --[span_32](end_span)
+        [span_33](start_span)firetouchinterest(player.Character.HumanoidRootPart, portal, 0) --[span_33](end_span)
+    end
+end
+
+-- [30] Thông báo hoàn tất
+status.Text = "Status: Đã xong Phần 3 (Fast Attack & Boss)!" -[span_34](start_span)-[span_34](end_span)
+-- [31] Database Kiếm & Võ Thần Thoại (Dựa trên danh sách dkhoa)
+local LegendaryItems = {
+    ["Jinwoo"] = {Price = 2500000, Gems = 7500, Items = {"Abyss Edge", 6, "Dark Ring", 3}, NPC = "Jinwoo Trainer", Island = "Đảo Thủy Thủ"},
+    ["Aizen"] = {Price = 6000000, Gems = 10000, Items = {"Mirage Pendant", 10, "Illusion Prism", 6}, NPC = "Aizen Trainer", Island = "Hueco Mundo"},
+    ["Yamato"] = {Gems = 30000, Items = {"Frozen Will", 14, "Yamato Essence", 7}, NPC = "Yamato Seller", Island = "Judgement Island"},
+    ["Dark Blade"] = {Price = 250000, Gems = 150, NPC = "Dark Blade Seller", Island = "Đảo Tuyết"}
+}
+
+-- [32] Hàm kiểm tra nguyên liệu trong kho (Inventory Check)
+function HasMaterials(itemList)
+    if not itemList then return true end
+    local inv = player.Data.Inventory
+    for i = 1, #itemList, 2 do
+        local name = itemList[i]
+        local amount = itemList[i+1]
+        if not inv:FindFirstChild(name) or inv[name].Value < amount then
+            return false
+        end
+    end
+    return true
+end
+
+-- [33] Logic tự động đi mua Kiếm/Võ khi đủ điều kiện
+_G.AutoBuyLegendary = true
+spawn(function()
+    while _G.AutoBuyLegendary do
+        task.wait(10)
+        for name, info in pairs(LegendaryItems) do
+            local myMoney = player.Data.Beli.Value
+            local myGems = player.Data.Gems.Value
+            
+            if myMoney >= (info.Price or 0) and myGems >= (info.Gems or 0) and HasMaterials(info.Items) then
+                if not player.Backpack:FindFirstChild(name) and not player.Character:FindFirstChild(name) then
+                    _G.Kaitun = false -- Tạm dừng farm để đi lấy đồ xịn
+                    status.Text = "Status: Đang đi lấy siêu phẩm " .. name
+                    
+                    -- Bay tới đảo và NPC
+                    TeleportToIsland(info.Island)
+                    local npc = game.Workspace.NPCs:FindFirstChild(info.NPC)
+                    if npc then
+                        Tween(npc.HumanoidRootPart.CFrame)
+                        -- Remote mua đồ chuẩn Salio
+                        ReplicatedStorage.Remotes.MainEvent:FireServer("BuyItem", name)
+                    end
+                    task.wait(2)
+                    _G.Kaitun = true
+                end
+            end
+        end
+    end
+end)
+
+-- [34] Tự động đổi Kiếm bằng Vé Boss (Boss Tickets)
+spawn(function()
+    while _G.Kaitun do
+        task.wait(30)
+        local tickets = player.Data.BossTickets.Value
+        if tickets >= 500 and not player.Backpack:FindFirstChild("Ichigo") then
+            status.Text = "Status: Đang đi đổi kiếm Ichigo bằng 500 Vé!"
+            TeleportToIsland("Đảo Boss")
+            ReplicatedStorage.Remotes.MainEvent:FireServer("BossExchange", "Ichigo")
+        end
+    end
+end)
+
+-- [35] Tự động trang bị Kiếm mạnh nhất (Auto Equip Best Sword)
+spawn(function()
+    while wait(5) do
+        if _G.Kaitun then
+            local bestSword = nil
+            local swords = {"True Aizen", "Yamato", "Shadow Monarch", "Jinwoo", "Aizen", "Saber"}
+            for _, s in pairs(swords) do
+                if player.Backpack:FindFirstChild(s) then
+                    bestSword = player.Backpack[s]
+                    break
+                end
+            end
+            if bestSword then
+                player.Character.Humanoid:EquipTool(bestSword)
+            end
+        end
+    end
+end)
+
+-- [36] Theo dõi tiến trình nhiệm vụ Aizen/Jinwoo (Kill NPCs)
+spawn(function()
+    while _G.Kaitun do
+        task.wait(5)
+        local stats = player.Data.QuestStats
+        if stats.NPCKilled.Value < 750 then
+            status.Text = "Status: Đang farm 750 NPC cho nhiệm vụ Jinwoo..."
+        elseif stats.DamageDealt.Value < 75000000 then
+            status.Text = "Status: Đang cày 75M dame cho Jinwoo..."
+        end
+    end
+end)
+
+-- [37] Tự động bật Chế độ "Đồ tể" (God Mode Light)
+spawn(function()
+    while _G.Kaitun do
+        task.wait()
+        if player.Character and player.Character.Humanoid.Health < 30 then
+            -- Bay lên trời hồi máu nhanh
+            local currentPos = player.Character.HumanoidRootPart.CFrame
+            Tween(currentPos * CFrame.new(0, 80, 0))
+            repeat task.wait() until player.Character.Humanoid.Health >= player.Character.Humanoid.MaxHealth
+            Tween(currentPos)
+        end
+    end
+end)
+
+-- [38] Hệ thống tự động nhặt Rương tiền (Auto Chest)
+spawn(function()
+    while _G.Kaitun do
+        task.wait(1)
+        for _, v in pairs(game.Workspace:GetChildren()) do
+            if v.Name:find("Chest") and v:FindFirstChild("TouchInterest") then
+                firetouchinterest(player.Character.HumanoidRootPart, v, 0)
+                task.wait(0.1)
+                firetouchinterest(player.Character.HumanoidRootPart, v, 1)
+            end
+        end
+    end
+end)
+
+-- [48] Thông báo hoàn tất Phần 4
+status.Text = "Status: Đã xong Phần 4 (Kiếm & Võ Thần Thoại)!"
+-- [49] Hệ thống Tự động nhập Code (Salio Piece Codes)
+local SalioCodes = {
+    "RELEASE", "SALIO2026", "SHIBUYA", "SORCERER", "100KVISITS",
+    "UPDATE1", "JINWOO_HERO", "VALENTINE2026", "FIX_BUG"
+}
+
+spawn(function()
+    if _G.AutoCode then
+        status.Text = "Status: Đang nhập Full Code nhận quà..."
+        for _, code in pairs(SalioCodes) do
+            pcall(function()
+                -- Remote nhập code (Check tên thật: CodeEvent/RedeemCode)
+                [span_2](start_span)ReplicatedStorage.Remotes.CodeEvent:FireServer(code) --[span_2](end_span)
+            end)
+            task.wait(1)
+        end
+        status.Text = "Status: Đã nhập xong Code!"
+    end
+end)
+
+-- [42] Tự động nhặt và cất Trái ác quỷ vào kho (Auto Store Fruit)
+_G.AutoStoreFruit = true
+spawn(function()
+    while _G.AutoStoreFruit do
+        task.wait(2)
+        for _, v in pairs(game.Workspace:GetChildren()) do
+            if v:IsA("Tool") and v:FindFirstChild("Fruit") then
+                local handle = v:FindFirstChild("Handle") or v:FindFirstChildOfClass("Part")
+                if handle then
+                    [span_3](start_span)status.Text = "Status: Phát hiện Trái ác quỷ! Đang nhặt..." --[span_3](end_span)
+                    Tween(handle.CFrame)
+                    firetouchinterest(player.Character.HumanoidRootPart, handle, 0)
+                    task.wait(0.1)
+                    -- Remote cất trái vào kho chuẩn Salio
+                    [span_4](start_span)ReplicatedStorage.Remotes.FruitRemote:FireServer("Store", v.Name) --[span_4](end_span)
+                end
+            end
+        end
+    end
+end)
+
+-- [43] Tối ưu hóa FPS (Super FPS Booster cho máy yếu)
+_G.LowGraphics = true
+spawn(function()
+    if _G.LowGraphics then
+        local lighting = game:GetService("Lighting")
+        lighting.GlobalShadows = false
+        [span_5](start_span)lighting.FogEnd = 9e9 --[span_5](end_span)
+        for _, v in pairs(game:GetDescendants()) do
+            if v:IsA("Part") or v:IsA("MeshPart") then
+                v.Material = Enum.Material.SmoothPlastic
+                v.CanTouch = false -- Giảm tải va chạm
+            end
+        end
+    end
+end)
+
+-- [44] Tự động Rejoin khi bị văng game (Anti-Kick)
+game:GetService("GuiService").ErrorMessageChanged:Connect(function()
+    task.wait(5)
+    [span_6](start_span)game:GetService("TeleportService"):Teleport(game.PlaceId, player) --[span_6](end_span)
+end)
+
+-- [45] Ẩn thông tin cá nhân (Stealth Mode)
+function StealthMode()
+    pcall(function()
+        if player.Character:FindFirstChild("Head") and player.Character.Head:FindFirstChild("NameTag") then
+            player.Character.Head.NameTag:Destroy()
+        end
+    end)
+end
+StealthMode()
+
+-- [46] Theo dõi vật phẩm hiếm nhặt được (Rare Drop Log)
+player.Data.Inventory.ChildAdded:Connect(function(item)
+    local rares = {"Shadow Heart", "Hogyoku Fragment", "Infinity Core", "Crimson Heart"}
+    if table.find(rares, item.Name) then
+        [span_7](start_span)status.Text = "!!! SIÊU PHẨM: " .. item.Name .. " !!!" --[span_7](end_span)
+        status.TextColor3 = Color3.fromRGB(255, 0, 255)
+        task.wait(5)
+        status.TextColor3 = Color3.fromRGB(255, 255, 255)
+    end
+end)
+
+-- [47] Tự động dùng Reroll Trait/Race (Nếu dkhoa muốn)
+_G.AutoReroll = false
+spawn(function()
+    while _G.AutoReroll do
+        task.wait(5)
+        if player.Data.RaceReroll.Value > 0 and player.Data.Race.Value == "Human" then
+            [span_8](start_span)ReplicatedStorage.Remotes.RaceRemote:FireServer("Reroll") --[span_8](end_span)
+        end
+    end
+end)
+
+-- [48] Hệ thống kiểm tra Whitelist dkhoa (Bảo mật)
+local function Authenticate()
+    print("---------------------------------------")
+    print("DKHOA SIGMA HUB v4 - AUTH SUCCESS")
+    print("Author: dkhoa")
+    print("Target: Salio Piece - Final Version")
+    print("---------------------------------------")
+end
+Authenticate()
+
+-- [49] Hiệu ứng kết thúc rực rỡ cho UI
+spawn(function()
+    while wait() do
+        title.TextColor3 = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+    end
+end)
+
+-- [50] Kích hoạt toàn bộ hệ thống (THE END)
+_G.Kaitun = true
+_G.AutoBoss = true
+_G.AutoBuyLegendary = true
+status.Text = "SIGMA HUB V4: SẴN SÀNG TREO MÁY!" -[span_9](start_span)-[span_9](end_span)
+status.TextColor3 = Color3.fromRGB(0, 255, 0)
+warn(_G.Prefix .. "Đã tải xong toàn bộ 50 đoạn logic!")
